@@ -37,7 +37,7 @@ public:
 
 private:
     struct Message {
-        uint32_t    timestamp = 0;
+        uint64_t timestamp = 0;
         std::string name;
         std::string message;
     };
@@ -59,7 +59,7 @@ private:
 
 	void DrawAlertsWindowContent(bool ownwindow);
 
-    static bool GetInKamadan();
+    static bool GetInKamadanAE1();
 
     // Since we are connecting in an other thread, the following attributes/methods avoid spamming connection requests
     void AsyncChatConnect();

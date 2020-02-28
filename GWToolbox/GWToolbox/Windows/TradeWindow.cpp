@@ -30,7 +30,8 @@ using easywsclient::WebSocket;
 using nlohmann::json;
 using json_vec = std::vector<json>;
 
-static const char ws_host[] = "wss://kamadan.decltype.org/ws/";
+static const char ws_host[] = "wss://kamadan.gwtoolbox.com";
+static const char http_host[] = "https://kamadan.gwtoolbox.com";
 
 void TradeWindow::Initialize() {
 	ToolboxWindow::Initialize();
@@ -79,14 +80,14 @@ TradeWindow::~TradeWindow() {
 	Terminate();
 }
 
-bool TradeWindow::GetInKamadan() {
+bool TradeWindow::GetInKamadanAE1() {
 	using namespace GW::Constants;
 	switch (GW::Map::GetMapID()) {
 	case MapID::Kamadan_Jewel_of_Istan_outpost:
 	case MapID::Kamadan_Jewel_of_Istan_Halloween_outpost:
 	case MapID::Kamadan_Jewel_of_Istan_Wintersday_outpost:
 	case MapID::Kamadan_Jewel_of_Istan_Canthan_New_Year_outpost:
-		return true;
+		return GW::Map::GetDistrict() == 1 && GW::Map::GetRegion() == GW::Constants::Region::America;
 	default:
 		return false;
 	}
@@ -102,8 +103,7 @@ void TradeWindow::Update(float delta) {
 	}
 
 	// do not display trade chat while in kamadan AE district 1
-	if (GetInKamadan() && GW::Map::GetDistrict() == 1 &&
-		GW::Map::GetRegion() == GW::Constants::Region::America) {
+	if (GetInKamadanAE1()) {
 		if (ws_chat) ws_chat->close();
 		return;
 	}
@@ -150,9 +150,9 @@ void TradeWindow::Update(float delta) {
 
 TradeWindow::Message TradeWindow::parse_json_message(json js) {
 	TradeWindow::Message msg;
-	msg.name = js["name"].get<std::string>();
-	msg.message = js["message"].get<std::string>();
-	msg.timestamp = stoi(js["timestamp"].get<std::string>());
+	msg.name = js["s"].get<std::string>();
+	msg.message = js["m"].get<std::string>();
+	msg.timestamp = js["t"].get<uint64_t>() / 1000;
 	return msg;
 }
 
@@ -169,7 +169,7 @@ void TradeWindow::fetch() {
 			messages.add(msg);
 		} else {
 			search_pending = false;
-			if (res["num_results"].get<std::string>() == "0")
+			if (res["num_results"].get<uint64_t>() == 0)
 				return;
 			json_vec results = res["results"].get<json_vec>();
 			messages.clear();
@@ -203,8 +203,8 @@ void TradeWindow::search(std::string query) {
 
 	json request;
 	request["query"] = query;
-	request["offset"] = 0;
-	request["suggest"] = 0;
+	// request["offset"] = 0;
+	// request["suggest"] = 0;
 	ws_window->send(request.dump());
 }
 
@@ -256,9 +256,11 @@ void TradeWindow::Draw(IDirect3DDevice9* device) {
 		ImGui::BeginChild("trade_scroll", ImVec2(0, -20.0f - ImGui::GetStyle().ItemInnerSpacing.y));
 		/* Connection checks */
 		if (!ws_window && !ws_window_connecting) {
-			ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize("The connection to kamadan.decltype.com has timed out.").x) / 2);
+			char buf[255];
+			snprintf(buf, 255, "The connection to %s has timed out.", ws_host);
+			ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize(buf).x) / 2);
 			ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
-			ImGui::Text("The connection to kamadan.decltype.com has timed out.");
+			ImGui::Text(buf);
 			ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize("Click to reconnect").x) / 2);
 			if (ImGui::Button("Click to reconnect")) {
 				AsyncWindowConnect();
@@ -272,7 +274,7 @@ void TradeWindow::Draw(IDirect3DDevice9* device) {
 			bool show_time = ImGui::GetWindowWidth() > 600.0f;
 
 			char timetext[128];
-			time_t now = time(nullptr);
+			uint64_t now = _time64(nullptr);
 
 			const float innerspacing = ImGui::GetStyle().ItemInnerSpacing.x;
 			const float time_width = show_time ? 100.0f : 0.0f;
@@ -288,23 +290,24 @@ void TradeWindow::Draw(IDirect3DDevice9* device) {
 				// ==== time elapsed column ====
 				if (show_time) {
 					// negative numbers have came from this before, it is probably just server client desync
-					int time_since_message = (int)now - msg.timestamp;
+					assert(now >= msg.timestamp);
+					uint64_t time_since_message = now - msg.timestamp;
 
 					ImGui::PushFont(GuiUtils::GetFont(GuiUtils::FontSize::f16));
 					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(.7f, .7f, .7f, 1.0f));
 
 					// decide if days, hours, minutes, seconds...
-					if ((int)(time_since_message / (60 * 60 * 24))) {
-						int days = (int)(time_since_message / (60 * 60 * 24));
-						_snprintf(timetext, 128, "%d %s ago", days, days > 1 ? "days" : "day");
-					} else if ((int)(time_since_message / (60 * 60))) {
-						int hours = (int)(time_since_message / (60 * 60));
-						_snprintf(timetext, 128, "%d %s ago", hours, hours > 1 ? "hours" : "hour");
-					} else if ((int)(time_since_message / (60))) {
-						int minutes = (int)(time_since_message / 60);
-						_snprintf(timetext, 128, "%d %s ago", minutes, minutes > 1 ? "minutes" : "minute");
+					if (time_since_message / (60 * 60 * 24)) {
+						uint64_t days = time_since_message / (60 * 60 * 24);
+						_snprintf(timetext, 128, "%llu %s ago", days, days > 1 ? "days" : "day");
+					} else if (time_since_message / (60 * 60)) {
+						uint64_t hours = time_since_message / (60 * 60);
+						_snprintf(timetext, 128, "%llu %s ago", hours, hours > 1 ? "hours" : "hour");
+					} else if (time_since_message / (60)) {
+						uint64_t minutes = time_since_message / 60;
+						_snprintf(timetext, 128, "%llu %s ago", minutes, minutes > 1 ? "minutes" : "minute");
 					} else {
-						_snprintf(timetext, 128, "%d %s ago", time_since_message, time_since_message > 1 ? "seconds" : "second");
+						_snprintf(timetext, 128, "%llu %s ago", time_since_message, time_since_message > 1 ? "seconds" : "second");
 					}
 					ImGui::SetCursorPosX(playername_left - innerspacing - ImGui::CalcTextSize(timetext).x);
 					ImGui::Text(timetext);
@@ -334,9 +337,11 @@ void TradeWindow::Draw(IDirect3DDevice9* device) {
 		ImGui::EndChild();
 
 		/* Link to website footer */
-		if (ImGui::Button("Powered by https://kamadan.decltype.org", ImVec2(ImGui::GetWindowContentRegionWidth(), 20.0f))){ 
+		char buffer[128];
+		snprintf(buffer, _countof(buffer), "Powered by %s", http_host);
+		if (ImGui::Button(buffer, ImVec2(ImGui::GetWindowContentRegionWidth(), 20.0f))){ 
 			CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-			ShellExecuteA(NULL, "open", "https://kamadan.decltype.org", NULL, NULL, SW_SHOWNORMAL);
+			ShellExecuteA(NULL, "open", http_host, NULL, NULL, SW_SHOWNORMAL);
 		}
 
 		/* Alerts window */
