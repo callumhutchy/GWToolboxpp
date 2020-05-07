@@ -6,15 +6,26 @@
 #include <imgui.h>
 #include <imgui_impl_dx9.h>
 
+#include <iostream>
+#include <fstream>
+#include <GWCA/Managers/MapMgr.h>
 #include <GWCA/Utilities/Hooker.h>
 #include <GWCA/GameContainers/Array.h>
 #include <GWCA/GameContainers/GamePos.h>
+#include <GWCA/Managers/PartyMgr.h>
+
 #include <GWCA/GameEntities/Party.h>
+#include <GWCA/GameEntities/Hero.h>
+#include <GWCA/Constants/Skills.h>
+#include <GWCA/GameEntities/Skill.h>
+
+
 
 #include <GWCA/GWCA.h>
 #include <GWCA/Managers/MapMgr.h>
 #include <GWCA/Managers/ChatMgr.h>
 #include <GWCA/Managers/StoCMgr.h>
+#include <GWCA/Managers/SkillbarMgr.h>
 #include <GWCA/Managers/AgentMgr.h>
 #include <GWCA/Managers/MemoryMgr.h>
 #include <GWCA/Managers/RenderMgr.h>
@@ -31,6 +42,8 @@
 
 #include <d3dx9_dynamic.h>
 
+#include <chrono>
+
 #include "GuiUtils.h"
 #include "logger.h"
 #include "Defines.h"
@@ -46,6 +59,8 @@ namespace {
     bool drawing_world = 0;
     int drawing_passes = 0;
     int last_drawing_passes = 0;
+
+    std::chrono::steady_clock::time_point begin;
 }
 
 HMODULE GWToolbox::GetDLLModule() {
@@ -358,6 +373,9 @@ void GWToolbox::Initialize() {
         DWORD playerNumber = GW::Agents::GetPlayerAsAgentLiving()->player_number;
         Log::Info("Hello %ls!", GW::Agents::GetPlayerNameByLoginNumber(playerNumber));
     }
+
+    begin = std::chrono::steady_clock::now();
+
 }
 void GWToolbox::FlashWindow() {
 	FLASHWINFO flashInfo = { 0 };
@@ -501,6 +519,8 @@ void GWToolbox::Draw(IDirect3DDevice9* device) {
 	}
 }
 
+
+
 void GWToolbox::Update(GW::HookStatus *)
 {
     static DWORD last_tick_count;
@@ -517,10 +537,86 @@ void GWToolbox::Update(GW::HookStatus *)
         DWORD delta = tick - last_tick_count;
         float delta_f = delta / 1000.f;
 
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
         for (ToolboxModule* module : tb.modules) {
             module->Update(delta_f);
         }
 
+
+        if (std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() > 1) {
+
+            //Party Info Reading
+            
+            if (GW::GameContext::instance()->map != nullptr && GW::GameContext::instance()->party != nullptr) {
+                Log::Log("Apparently map is loaded\n");
+                    GW::PartyInfo* pp = GW::PartyMgr::GetPartyInfo();
+                    Log::Log("Retrieved party info\n");
+                    if (GW::PartyMgr::GetIsPartyLoaded && pp != nullptr) {
+                        Log::Log("Apparently party is loaded\n");
+                        GW::SkillbarArray sba = GW::SkillbarMgr::GetSkillbarArray();
+                        Log::Log("Got skill bar\n");
+
+                            for (int p = 0; p < pp->players.size(); p++) {
+                                uint32_t loginNumber = pp->players[p].login_number;
+                                Log::Log((std::to_string(loginNumber) + "\n").c_str());
+                                Log::LogW(GW::Agents::GetPlayerNameByLoginNumber(loginNumber));
+                            }
+
+                            Log::Log("Heroes\n");
+                            for (int p = 0; p < pp->heroes.size(); p++) {
+                                uint32_t hid = pp->heroes[p].hero_id;
+                                uint32_t aid = pp->heroes[p].agent_id;
+
+
+                                const char* heroName = "";
+
+                                switch (hid) {
+                                case GW::Constants::HeroID::AcolyteJin:
+                                    heroName = "Acolyte Jin\n";
+                                    break;
+                                case GW::Constants::HeroID::Koss:
+                                    heroName = "Koss\n";
+                                    break;
+                                case GW::Constants::HeroID::Ogden:
+                                    heroName = "Ogden Stonehealer\n";
+                                    break;
+                                case GW::Constants::HeroID::Melonni:
+                                    heroName = "Melonni\n";
+                                    break;
+                                case GW::Constants::HeroID::MOX:
+                                    heroName = "MOX\n";
+                                    break;
+                                case GW::Constants::HeroID::Dunkoro:
+                                    heroName = "Dunkoro\n";
+                                    break;
+                                }
+                                Log::Log(heroName);
+                                for (int sb = 0; sb < sba.size(); sb++) {
+                                    if (sba[sb].agent_id == aid) {
+                                        GW::SkillbarSkill* ss = sba[sb].skills;
+                                        for (int bar = 0; bar < 8; bar++) {
+                                            Log::Log((std::to_string(ss[bar].skill_id) + "\n").c_str());
+                                        }
+                                        float hp = GW::Agents::GetAgentByID(aid)->GetAsAgentLiving()->hp;
+                                        GW::Agents::GetAgentByID(aid)->GetAsAgentLiving().
+                                    }
+                                }
+                            }
+                        
+                        
+                    }
+
+                }
+            
+
+            begin = std::chrono::steady_clock::now();
+        }
+
+
+        
         last_tick_count = tick;
     }
 }
+
+
