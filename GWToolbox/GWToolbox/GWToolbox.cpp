@@ -14,6 +14,7 @@
 #include <GWCA/GameContainers/GamePos.h>
 #include <GWCA/Managers/PartyMgr.h>
 #include <GWCA/GameEntities/Attribute.h>
+
 #include <GWCA/GameEntities/Party.h>
 #include <GWCA/GameEntities/Hero.h>
 #include <GWCA/Constants/Skills.h>
@@ -519,7 +520,14 @@ void GWToolbox::Draw(IDirect3DDevice9* device) {
 	}
 }
 
-
+GW::Attribute* GWToolbox::GetAttributes(GW::PartyAttributeArray partyAttributes, uint32_t agentId) {
+	for (int i = 0; i < partyAttributes.size(); i++) {
+		if (partyAttributes[i].agent_id == agentId) {
+			return partyAttributes[i].attribute;
+		}
+	}
+	return nullptr;
+}
 
 void GWToolbox::Update(GW::HookStatus *)
 {
@@ -551,9 +559,32 @@ void GWToolbox::Update(GW::HookStatus *)
             if (GW::GameContext::instance()->map != nullptr && GW::GameContext::instance()->party != nullptr) {
                 Log::Log("Apparently map is loaded\n");
                     GW::PartyInfo* pp = GW::PartyMgr::GetPartyInfo();
+					GW::PartyAttributeArray  partyAttributes = GW::GameContext::instance()->world->attributes;
+
                     Log::Log("Retrieved party info\n");
                     if (GW::PartyMgr::GetIsPartyLoaded && pp != nullptr) {
-                        Log::Log("Apparently party is loaded\n");
+                    
+						Log::Log(("Party Attributes " + std::to_string(partyAttributes.size())).c_str());
+
+						Log::Log("Attributes\n");
+						for (int pai = 0; pai < partyAttributes.size(); pai++) {
+							uint32_t aid = partyAttributes[pai].agent_id;
+							GW::Attribute* attributes = partyAttributes[pai].attribute;
+							Log::Log(("Party member : " + std::to_string(aid) + "\n").c_str());
+							if (attributes != nullptr) {
+								for (int atti = 0; atti < 49; atti++) {
+									GW::Attribute att = attributes[atti];
+										Log::Log((std::to_string(att.id) + " | " + std::to_string(att.level) + "\n").c_str());
+									
+								}
+							}
+							else {
+								Log::Log("Null attributes\n");
+							}
+						}
+						
+
+						Log::Log("Apparently party is loaded\n");
                         GW::SkillbarArray sba = GW::SkillbarMgr::GetSkillbarArray();
                         Log::Log("Got skill bar\n");
 
@@ -594,24 +625,17 @@ void GWToolbox::Update(GW::HookStatus *)
                                 Log::Log(heroName);
                                 for (int sb = 0; sb < sba.size(); sb++) {
                                     if (sba[sb].agent_id == aid) {
+										Log::Log("Skills\n");
                                         GW::SkillbarSkill* ss = sba[sb].skills;
+										std::string skills = "";
                                         for (int bar = 0; bar < 8; bar++) {
-                                            Log::Log((std::to_string(ss[bar].skill_id) + "\n").c_str());
+											skills += (std::to_string(ss[bar].skill_id) + " | ").c_str();
                                         }
+										skills += "\n";
+										Log::Log(skills.c_str());
                                         //float hp = GW::Agents::GetAgentByID(aid)->GetAsAgentLiving()->hp;
-										GW::Attribute* attributes = GW::SkillbarMgr::GetAttributes(aid);
-										Log::Log("Attributes\n");
-										if (attributes != nullptr) {
-											for (int atti = 0; atti < 49; atti++) {
-												GW::Attribute att = attributes[atti];
-												if (att.level > 0) {
-													Log::Log((std::to_string(att.id) + " | " + std::to_string(att.level) + "\n").c_str());
-												}
-											}
-										}
-										else {
-											Log::Log("Null attributes\n");
-										}
+										
+										
 										
                                     }
                                 }
@@ -630,6 +654,8 @@ void GWToolbox::Update(GW::HookStatus *)
         
         last_tick_count = tick;
     }
+
+	
 }
 
 

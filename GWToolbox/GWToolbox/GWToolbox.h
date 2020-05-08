@@ -5,6 +5,8 @@
 #include "ToolboxUIElement.h"
 
 #include <GWCA/Managers/GameThreadMgr.h>
+#include <GWCA/GameEntities/Party.h>
+#include <GWCA/GameEntities/Attribute.h>
 
 DWORD __stdcall SafeThreadEntry(LPVOID mod);
 DWORD __stdcall ThreadEntry(LPVOID);
@@ -23,6 +25,7 @@ public:
 
 	static HMODULE GetDLLModule();
 	static void Draw(IDirect3DDevice9* device);
+	static GW::Attribute* GetAttributes(GW::PartyAttributeArray partyAttributes, uint32_t agentId);
 	static void Update(GW::HookStatus *);
 
 	void Initialize();
