@@ -13,7 +13,7 @@
 #include <GWCA/GameContainers/Array.h>
 #include <GWCA/GameContainers/GamePos.h>
 #include <GWCA/Managers/PartyMgr.h>
-
+#include <GWCA/GameEntities/Attribute.h>
 #include <GWCA/GameEntities/Party.h>
 #include <GWCA/GameEntities/Hero.h>
 #include <GWCA/Constants/Skills.h>
@@ -598,8 +598,21 @@ void GWToolbox::Update(GW::HookStatus *)
                                         for (int bar = 0; bar < 8; bar++) {
                                             Log::Log((std::to_string(ss[bar].skill_id) + "\n").c_str());
                                         }
-                                        float hp = GW::Agents::GetAgentByID(aid)->GetAsAgentLiving()->hp;
-                                        GW::Agents::GetAgentByID(aid)->GetAsAgentLiving().
+                                        //float hp = GW::Agents::GetAgentByID(aid)->GetAsAgentLiving()->hp;
+										GW::Attribute* attributes = GW::SkillbarMgr::GetAttributes(aid);
+										Log::Log("Attributes\n");
+										if (attributes != nullptr) {
+											for (int atti = 0; atti < 49; atti++) {
+												GW::Attribute att = attributes[atti];
+												if (att.level > 0) {
+													Log::Log((std::to_string(att.id) + " | " + std::to_string(att.level) + "\n").c_str());
+												}
+											}
+										}
+										else {
+											Log::Log("Null attributes\n");
+										}
+										
                                     }
                                 }
                             }
